@@ -6,6 +6,7 @@
 
 int main()
 {
+/*
     FILE* output = fopen("dots", "w");
     if(!output)
     {
@@ -40,6 +41,22 @@ int main()
 
     system("gnuplot CreatePlot");
     system("xdg-open plotty.png");
+*/
+
+    Array<bool> a;
+
+    bool b = true;
+
+    a << true;
+    a << true;
+    a << true;
+    a << false;
+    a << false;
+    a >> b;
+    a << true;
+
+    std::cout << b<< "\n";
+
 }
 
 // Как запихать нормально в другой файл?
