@@ -1,0 +1,6 @@
+plot 	"dots" using 1:2 title "Catmull-Rom" lt rgb "red",\
+		"dots" using 1:3 title "Knot points" lt rgb "blue" pointtype 7
+set term png
+set output "plotty.png"
+replot
+set term x11
