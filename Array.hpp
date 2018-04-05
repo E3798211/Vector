@@ -52,6 +52,8 @@ public:
         PrintInfo("Move constructor\n");
         if(&that != this)
         {
+            that.SetCapacity(0);
+            that.SetNElements(0);
             that.SetArray(nullptr);
         }
     }
@@ -67,7 +69,11 @@ public:
     bool operator==(const Array<data_G>& that);
 
     /// []
-    data_T& operator[](double index);
+    // data_T& operator[](double index);
+    data_T& operator[](size_t index);
+
+    /// []
+    data_T  operator[](double index);
 
     /// Operator new (for move)
     void* operator new(size_t size, Array<data_T>* place)
@@ -219,7 +225,18 @@ bool Array<data_T>::operator==(const Array<data_G>& that)                       
 }
 
 template<typename data_T>
-data_T& Array<data_T>::operator[](double index)                                         // !
+data_T& Array<data_T>::operator[](size_t index)                                         // !
+{
+    if(index >= capacity_ - 1)
+    {
+        PrintErr("No such elements\n");
+        return garbage_collector_;
+    }
+    return array_[index];
+}
+
+template<typename data_T>
+data_T Array<data_T>::operator[](double index)                                         // !
 {
     if(index < 0)
     {
@@ -235,7 +252,7 @@ data_T& Array<data_T>::operator[](double index)                                 
 }
 
 template<>
-double& Array<double>::operator[](double index)
+double  Array<double>::operator[](double index)
 {
     if((size_t)index < 1)
     {
@@ -286,7 +303,6 @@ double& Array<double>::operator[](double index)
     garbage_collector_ = p1 + p2*t + p3*t*t + p4*t*t*t;             // <-- couldn't return temporary variable
     return garbage_collector_;
 }
-
 
 template<typename data_T>
 bool Array<data_T>::operator<<(const data_T& new_elem)
@@ -419,6 +435,53 @@ class Array<bool>
 {
 private:
 
+struct RetBool
+{
+    /// Number of the pack with the bit to be changed
+    char* pack_num_  = 0;
+
+    /// Offset in the pack
+    size_t offset_   = 0;
+
+    /// "Checker"
+    bool ready_ = false;
+
+    /// Default constructor
+    RetBool() {};
+
+    /// Operator bool
+    operator bool()
+    {
+        if(!pack_num_)      return false;
+
+        unsigned char bit = 1;
+        bit <<= offset_;
+        bit &= (*pack_num_);
+        bit >>= offset_;
+        return (bit == 1) ? true : false;
+    }
+
+    /// Operator =
+    RetBool& operator=(const bool& new_elem)
+    {
+        unsigned char bit = new_elem ? 1 : 0;
+        bit <<= offset_;
+        unsigned char cleaner = ~(1 << offset_);
+        (*pack_num_) &= cleaner;
+        (*pack_num_) |= bit;
+
+        return *this;
+    }
+
+    /// Setter
+    void Set(char* pack_num, size_t offset)
+    {
+        pack_num_ = pack_num;
+        offset_   = offset;
+    }
+};
+
+
     /// Array itself
     char* array_        = nullptr;
 
@@ -429,7 +492,7 @@ private:
     size_t n_elements_  = 0;
 
     /// Container for bits
-    char bit_container_ = 0;
+    RetBool bit_container_;
 
     /// Swaps elements of two Arrays<bool>
     int Swap(Array<bool>& that);
@@ -481,7 +544,7 @@ public:
     bool operator==(const Array<data_G>& that);
 
     /// []
-    bool& operator[](size_t index);
+    RetBool& operator[](size_t index);
 
     /// Operator new (for move)
     void* operator new(size_t size, Array<bool>* place)
@@ -495,6 +558,8 @@ public:
         PrintInfo("Move assignment\n");
 
         Swap(that);
+
+        return *this;
     }
 
     /// Copy assignment
@@ -606,11 +671,11 @@ Array<bool>::Array(const Array<bool>& that):
         return;
     }
 
-    for(int i = 0; i < n_packs_; i++)
+    for(size_t i = 0; i < n_packs_; i++)
         array_[i] = that.GetArray()[i];
 }
 
-Array<bool>::~Array()
+Array<bool>::~Array()// bool
 {
     PrintInfo("Destructor (bool)\n");
 
@@ -629,19 +694,19 @@ bool Array<bool>::operator==(const Array<data_G>& that)
     return false;
 }
 
-bool& Array<bool>::operator[](size_t index)                                             // <--
+Array<bool>::RetBool& Array<bool>::operator[](size_t index)                                             // <--
 {
-    if(index < 0)
-    {
-        PrintErr("Index is below zero (bool)\n");
-        return garbage_collector_;
-    }
-    if((size_t)index >= n_elements_ - 1)
+    if(index >= n_elements_)
     {
         PrintErr("No such elements (bool)\n");
-        return garbage_collector_;
+        throw std::bad_exception();
     }
-    return garbage_collector_;
+
+    size_t pack_num = index/8;
+    size_t offset   = index - pack_num*8;
+
+    bit_container_.Set(array_ + pack_num, offset);
+    return bit_container_;
 }
 
 bool Array<bool>::operator<<(const bool& new_elem)
@@ -650,7 +715,6 @@ bool Array<bool>::operator<<(const bool& new_elem)
         try
         {
             Resize(1);
-            array_[0] = 0;
         }
         catch(std::bad_alloc& ex)
         {
@@ -661,7 +725,6 @@ bool Array<bool>::operator<<(const bool& new_elem)
         try
         {
             Resize(n_packs_ + 1);
-            array_[n_packs_] = 0;
         }
         catch(std::bad_alloc& ex)
         {
@@ -672,7 +735,7 @@ bool Array<bool>::operator<<(const bool& new_elem)
     size_t pack_num = n_elements_/8;
     size_t offset   = n_elements_ - pack_num*8;
 
-    char tmp = new_elem ? 1 : 0;
+    unsigned char tmp = new_elem ? 1 : 0;
     tmp <<= offset;
 
     // Placing bit
@@ -690,16 +753,18 @@ bool Array<bool>::operator>>(bool& new_elem)
         return false;
     }
 
-    // new_elem = array_[--n_elements_];                                                    // <--
-    // --n_elements_;
+    unsigned char bit = 1;
+    unsigned char cleaner = 0;
 
-    char tmp = 1;
-    size_t offset = n_elements_ - n_packs_*8 - 1;
-    tmp = tmp << offset;
-    tmp = tmp & array_[n_packs_ - 1];
-    tmp = tmp >> offset;
+    size_t offset = n_elements_ - (n_packs_ - 1)*8 - 1;
 
-    new_elem = (tmp == 1) ? true : false;
+    bit <<= offset;
+    cleaner = ~bit;                                 // bit = 00010000, cleaner = 11101111
+    bit &=  array_[n_packs_ - 1];
+    array_[n_packs_ - 1] &= cleaner;
+    bit >>= offset;
+
+    new_elem = (bit == 1) ? true : false;
 
     n_elements_--;
 
@@ -752,12 +817,11 @@ void Array<bool>::PrintAll()
     std::cout << "n_elemen = " << n_elements_ << "\n";
     std::cout << "array_   = " << (int*)array_<< "\n";
 
-    char tmp = true;
-    for(int i = 0; i < n_packs_; i++)
+    unsigned char tmp = true;
+    for(size_t i = 0; i < n_packs_; i++)
     {
-        printf("array[%d] = %d\n", i, array_[i]);
         for(int j = 0; j < 8; j++)
-        {                                               // What the fuck is it? Looks like compiler wants to help me too much...
+        {
             tmp = 1;
             tmp = tmp << j;
             tmp = tmp & array_[i];
@@ -765,10 +829,11 @@ void Array<bool>::PrintAll()
 
             std::cout << "array[" << i << "][" << j << "]\t=" << ((tmp == 1) ? "true" : "false") << "\n";
         }
+        std::cout << "\n";
     }
 }
 
-int Array<bool>::Swap(Array<bool>& that)
+int  Array<bool>::Swap(Array<bool>& that)
 {
     char* tmp_arr = nullptr;
 
@@ -788,7 +853,6 @@ int Array<bool>::Swap(Array<bool>& that)
 
     return tmp;
 }
-
 
 
 #endif // ARRAY_HPP_INCLUDED

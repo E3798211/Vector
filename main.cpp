@@ -6,6 +6,23 @@
 
 int main()
 {
+
+    Array<bool> a;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+    a << true;
+
+    a[6] = false;
+
+    if(a[5])    std::cout << "AAAAAAAAA\n";
+    if(!a[6])   std::cout << "BBBBBBBBB\n";
+
 /*
     FILE* output = fopen("dots", "w");
     if(!output)
@@ -42,7 +59,7 @@ int main()
     system("gnuplot CreatePlot");
     system("xdg-open plotty.png");
 */
-
+/*
     Array<bool> a;
 
     bool b = true;
@@ -56,32 +73,8 @@ int main()
     a << true;
 
     std::cout << b<< "\n";
-
+*/
 }
-
-// Как запихать нормально в другой файл?
-
-// template<typename data_T>
-// Array<data_T> Array<data_T>::operator[](data_T new_elem)
-//              ^
-//              |
-//              &       <-- какой конструктор вызывается без него?
-
-// Канарейки? Через new?
-
-// xvalue - что это?
-
-// Swap - нормально ли это, что руками, а не swap?
-
-// Perfect forwarding - что это?
-
-// Что можно сделать с []? Ambiguating :(
-
-// Частичная и явная специализация - пишем каждый раз все заново?
-
-
-
-
 
 
 
